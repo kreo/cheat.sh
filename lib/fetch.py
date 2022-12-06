@@ -54,7 +54,7 @@ def fetch_all(skip_existing=True):
             if not cmd:
                 continue
 
-            sys.stdout.write("Fetching %s..." % (adptr))
+            sys.stdout.write(f"Fetching {adptr}...")
             sys.stdout.flush()
             try:
                 process = subprocess.Popen(
@@ -78,8 +78,10 @@ def fetch_all(skip_existing=True):
             continue
         if location in known_location \
             and adptr.repository_url() != known_location[location].repository_url():
-            fatal("Duplicate location: %s for %s and %s"
-                  % (location, adptr, known_location[location]))
+            fatal(
+                f"Duplicate location: {location} for {adptr} and {known_location[location]}"
+            )
+
         known_location[location] = adptr
 
     # Parent directories creation
@@ -91,9 +93,9 @@ def fetch_all(skip_existing=True):
         if os.path.exists(location):
             if skip_existing:
                 existing_locations.append(location)
-                print("Already exists %s" % (location))
+                print(f"Already exists {location}")
             else:
-                fatal("%s already exists" % location)
+                fatal(f"{location} already exists")
 
         parent = os.path.dirname(location)
         if os.path.exists(parent):
@@ -151,7 +153,7 @@ def _update_adapter(adptr):
 
     name = adptr.name()
     for entry in entries:
-        cache_name = name + ":" + entry
+        cache_name = f"{name}:{entry}"
         _log("+ invalidating %s", cache_name)
         cache.delete(cache_name)
 

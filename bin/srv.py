@@ -24,5 +24,5 @@ else:
     port = CONFIG['server.port']
 
 srv = WSGIServer((CONFIG['server.bind'], port), app)
-print("Starting gevent server on {}:{}".format(srv.address[0], srv.address[1]))
+print(f"Starting gevent server on {srv.address[0]}:{srv.address[1]}")
 srv.serve_forever()

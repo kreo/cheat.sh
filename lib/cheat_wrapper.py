@@ -39,9 +39,7 @@ def cheat_wrapper(query, request_options=None, output_format='ansi'):
     """
 
     def _rewrite_aliases(word):
-        if word == ':bash.completion':
-            return ':bash_completion'
-        return word
+        return ':bash_completion' if word == ':bash.completion' else word
 
     def _rewrite_section_name(query):
         """
@@ -58,7 +56,7 @@ def cheat_wrapper(query, request_options=None, output_format='ansi'):
             section_name = rewrite_editor_section_name(section_name)
         section_name = LANGUAGE_ALIAS.get(section_name, section_name)
 
-        return "%s/%s" % (section_name, rest)
+        return f"{section_name}/{rest}"
 
     def _sanitize_query(query):
         return re.sub('[<>"]', '', query)

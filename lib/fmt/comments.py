@@ -98,9 +98,7 @@ def _line_type(line):
     if line.strip().startswith('* ') or re.match(r'[0-9]+\.', line.strip()):
         return TEXT
 
-    if line.startswith('   '):
-        return CODE
-    return TEXT
+    return CODE if line.startswith('   ') else TEXT
 
 def _classify_lines(lines):
     line_types = [_line_type(line) for line in lines]
@@ -142,12 +140,9 @@ def _classify_lines(lines):
 
 def _unindent_code(line, shift=0):
     if shift == -1 and line != '':
-        return ' ' + line
+        return f' {line}'
 
-    if shift > 0 and line.startswith(' '*shift):
-        return line[shift:]
-
-    return line
+    return line[shift:] if shift > 0 and line.startswith(' '*shift) else line
 
 def _wrap_lines(lines_classes, unindent_code=False):
     """
@@ -164,8 +159,10 @@ def _wrap_lines(lines_classes, unindent_code=False):
         else:
             if line_content.strip() == "":
                 result.append((line_type, ""))
-            for line in textwrap.fill(line_content).splitlines():
-                result.append((line_type, line))
+            result.extend(
+                (line_type, line)
+                for line in textwrap.fill(line_content).splitlines()
+            )
 
     return result
 
@@ -187,8 +184,7 @@ def _run_vim_script(script_lines, text_lines):
     my_env = os.environ.copy()
     my_env['HOME'] = CONFIG["path.internal.vim"]
 
-    cmd = ["script", "-q", "-c",
-           "vim -S %s %s" % (script_vim.name, textfile.name)]
+    cmd = ["script", "-q", "-c", f"vim -S {script_vim.name} {textfile.name}"]
 
     Popen(cmd, shell=False,
           stdin=open(os.devnull, 'r'),
@@ -216,7 +212,7 @@ def _commenting_script(lines_blocks, filetype):
 
         block_start = block_end + 1
 
-    script_lines.insert(0, "set ft=%s" % _language_name(filetype))
+    script_lines.insert(0, f"set ft={_language_name(filetype)}")
     script_lines.append("wq")
 
     return script_lines
@@ -266,8 +262,7 @@ def code_blocks(text, wrap_lines=False, unindent_code=False):
         lines_classes = _wrap_lines(lines_classes, unindent_code=unindent_code)
 
     lines_blocks = groupby(lines_classes, key=lambda x: x[0])
-    answer = [(x[0], "\n".join([y[1] for y in x[1]])+"\n") for x in lines_blocks]
-    return answer
+    return [(x[0], "\n".join([y[1] for y in x[1]])+"\n") for x in lines_blocks]
 
 
 def beautify(text, lang, options):
@@ -279,8 +274,12 @@ def beautify(text, lang, options):
     """
 
     options = options or {}
-    beauty_options = dict((k, v) for k, v in options.items() if k in
-                          ['add_comments', 'remove_text'])
+    beauty_options = {
+        k: v
+        for k, v in options.items()
+        if k in ['add_comments', 'remove_text']
+    }
+
 
     mode = ''
     if beauty_options.get('add_comments'):
@@ -288,13 +287,13 @@ def beautify(text, lang, options):
     if beauty_options.get('remove_text'):
         mode += 'q'
 
-    if beauty_options == {}:
+    if not beauty_options:
         # if mode is unknown, just don't transform the text at all
         return text
 
     if isinstance(text, str):
         text = text.encode('utf-8')
-    digest = "t:%s:%s:%s" % (hashlib.md5(text).hexdigest(), lang, mode)
+    digest = f"t:{hashlib.md5(text).hexdigest()}:{lang}:{mode}"
 
     # temporary added line that removes invalid cache entries
     # that used wrong commenting methods

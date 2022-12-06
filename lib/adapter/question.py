@@ -73,7 +73,7 @@ class Question(UpstreamAdapter):
             if ':' in section_name:
                 _, section_name = section_name.split(':', 1)
             section_name = SO_NAME.get(section_name, section_name)
-            topic = "%s/%s" % (section_name, topic)
+            topic = f"{section_name}/{topic}"
 
         # some clients send queries with - instead of + so we have to rewrite them to
         topic = re.sub(r"(?<!-)-", ' ', topic)
@@ -91,7 +91,7 @@ class Question(UpstreamAdapter):
             detector = Detector(query_text)
             supposed_lang = detector.languages[0].code
             if len(topic_words) > 2 \
-                or supposed_lang in ['az', 'ru', 'uk', 'de', 'fr', 'es', 'it', 'nl']:
+                    or supposed_lang in ['az', 'ru', 'uk', 'de', 'fr', 'es', 'it', 'nl']:
                 lang = supposed_lang
             if supposed_lang.startswith('zh_') or supposed_lang == 'zh':
                 lang = 'zh'
@@ -101,21 +101,14 @@ class Question(UpstreamAdapter):
                 lang = supposed_lang
 
         except UnknownLanguage:
-            print("Unknown language (%s)" % query_text)
+            print(f"Unknown language ({query_text})")
 
-        if lang != 'en':
-            topic = ['--human-language', lang, topic]
-        else:
-            topic = [topic]
-
+        topic = ['--human-language', lang, topic] if lang != 'en' else [topic]
         cmd = [CONFIG["path.internal.bin.upstream"]] + topic
         proc = Popen(cmd, stdin=open(os.devnull, "r"), stdout=PIPE, stderr=PIPE)
         answer = proc.communicate()[0].decode('utf-8')
 
-        if not answer:
-            return NOT_FOUND_MESSAGE
-
-        return answer
+        return answer or NOT_FOUND_MESSAGE
 
     def get_list(self, prefix=None):
         return []

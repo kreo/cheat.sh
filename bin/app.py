@@ -89,7 +89,7 @@ def _is_html_needed(user_agent):
     """
     Basing on `user_agent`, return whether it needs HTML or ANSI
     """
-    return all([x not in user_agent for x in PLAIN_TEXT_AGENTS])
+    return all(x not in user_agent for x in PLAIN_TEXT_AGENTS)
 
 def is_result_a_script(query):
     return query in [':cht.sh']
@@ -203,10 +203,10 @@ def _proxy(*args, **kwargs):
     # print "allow_redirects=", False
 
     url_before, url_after = request.url.split('/:shell-x/', 1)
-    url = url_before + ':3000/'
+    url = f'{url_before}:3000/'
 
     if 'q' in request.args:
-        url_after = '?' + "&".join("arg=%s" % x for x in request.args['q'].split())
+        url_after = '?' + "&".join(f"arg={x}" for x in request.args['q'].split())
 
     url += url_after
     print(url)
@@ -223,8 +223,7 @@ def _proxy(*args, **kwargs):
     headers = [(name, value) for (name, value) in resp.raw.headers.items()
                if name.lower() not in excluded_headers]
 
-    response = Response(resp.content, resp.status_code, headers)
-    return response
+    return Response(resp.content, resp.status_code, headers)
 
 
 @app.route("/", methods=['GET', 'POST'])
@@ -246,8 +245,16 @@ def answer(topic=None):
     html_needed = _is_html_needed(user_agent)
     options = parse_args(request.args)
 
-    if topic in ['apple-touch-icon-precomposed.png', 'apple-touch-icon.png', 'apple-touch-icon-120x120-precomposed.png'] \
-        or (topic is not None and any(topic.endswith('/'+x) for x in ['favicon.ico'])):
+    if (
+        topic
+        in [
+            'apple-touch-icon-precomposed.png',
+            'apple-touch-icon.png',
+            'apple-touch-icon-120x120-precomposed.png',
+        ]
+        or topic is not None
+        and any(topic.endswith(f'/{x}') for x in ['favicon.ico'])
+    ):
         return ''
 
     request_id = request.cookies.get('id')
@@ -256,18 +263,14 @@ def answer(topic=None):
             topic = last_query(request_id)
         else:
             return "ERROR: you have to set id for your requests to use /:last\n"
-    else:
-        if request_id:
-            save_query(request_id, topic)
+    elif request_id:
+        save_query(request_id, topic)
 
     if request.method == 'POST':
         process_post_request(request, html_needed)
-        if html_needed:
-            return redirect("/")
-        return "OK\n"
-
+        return redirect("/") if html_needed else "OK\n"
     if 'topic' in request.args:
-        return redirect("/%s" % request.args.get('topic'))
+        return redirect(f"/{request.args.get('topic')}")
 
     if topic is None:
         topic = ":firstpage"
@@ -276,27 +279,18 @@ def answer(topic=None):
         return _proxy()
         #return requests.get('http://127.0.0.1:3000'+topic[8:]).text
 
-    lang = get_answer_language(request)
-    if lang:
+    if lang := get_answer_language(request):
         options['lang'] = lang
 
     ip_address = get_request_ip(request)
     if '+' in topic:
-        not_allowed = LIMITS.check_ip(ip_address)
-        if not_allowed:
+        if not_allowed := LIMITS.check_ip(ip_address):
             return "429 %s\n" % not_allowed, 429
 
     html_is_needed = _is_html_needed(user_agent) and not is_result_a_script(topic)
-    if html_is_needed:
-        output_format='html'
-    else:
-        output_format='ansi'
+    output_format = 'html' if html_is_needed else 'ansi'
     result, found = cheat_wrapper(topic, request_options=options, output_format=output_format)
     if 'Please come back in several hours' in result and html_is_needed:
-        malformed_response = open(os.path.join(CONFIG["path.internal.malformed"])).read()
-        return malformed_response
-
+        return open(os.path.join(CONFIG["path.internal.malformed"])).read()
     log_query(ip_address, found, topic, user_agent)
-    if html_is_needed:
-        return result
-    return Response(result, mimetype='text/plain')
+    return result if html_is_needed else Response(result, mimetype='text/plain')
